@@ -5,35 +5,33 @@ array [RECTANGLES, 1..2] of int: dimensions = [|
 |];
 array [RECTANGLES] of string: labels = ["A", "B", "C", "D", "E", "F", "G", "H"];
 
-array [RECTANGLES] of int: ws = [dimensions[r, 1] | r in RECTANGLES];
-array [RECTANGLES] of int: hs = [dimensions[r, 2] | r in RECTANGLES];
+array [RECTANGLES] of int: ws = col(dimensions, 1);
+array [RECTANGLES] of int: hs = col(dimensions, 2);
 
-% int: max_coord = max([sum(ys) - min(ys), sum(xs) - min(xs)]);
-int: max_coord = max([sum(ws), sum(hs)]);
+array[RECTANGLES] of var min(ws)..sum(ws): top_x;
+array[RECTANGLES] of var min(hs)..sum(hs): top_y;
+array[RECTANGLES] of var 0..(sum(ws) - min(ws)): bottom_x;
+array[RECTANGLES] of var 0..(sum(hs) - min(hs)): bottom_y;
 
-array[RECTANGLES, 1..4] of var 0..max_coord: corners;
-
-constraint forall(r in RECTANGLES) (
-  corners[r, 3] - corners[r, 1] = dimensions[r, 1] - 1
-    /\ corners[r, 4] - corners[r, 2] = dimensions[r, 2] - 1
+constraint forall(r in RECTANGLES)(
+  top_x[r] - bottom_x[r] = ws[r] - 1 /\ top_y[r] - bottom_y[r] = hs[r] - 1
 );
 
 constraint forall(r1, r2 in RECTANGLES where r1 < r2) (
-  corners[r1, 2] > corners[r2, 4]
-    \/ corners[r1, 4] < corners[r2, 2]
-    \/ corners[r1, 1] > corners[r2, 3]
-    \/ corners[r1, 3] < corners[r2, 1]
+  bottom_y[r1] > top_y[r2]
+    \/ top_y[r1] < bottom_y[r2]
+    \/ bottom_x[r1] > top_x[r2]
+    \/ top_x[r1] < bottom_x[r2]
 );
 
-var int: width = max([corners[r, 3] | r in RECTANGLES]) - min([corners[r, 1] | r in RECTANGLES]);
-var int: height = max([corners[r, 4] | r in RECTANGLES]) - min([corners[r, 2] | r in RECTANGLES]);
-
+var int: width = max(top_x) - min(bottom_x);
+var int: height = max(top_y) - min(bottom_y);
 var int: total_area = width * height;
 
 solve minimize total_area;
 
 predicate in_rectangle(var int: r, var int: i, var int: j) =
-  fix(i >= corners[r, 1] /\ i <= corners[r, 3] /\ j >= corners[r, 2] /\ j <= corners[r, 4]);
+  fix(i >= bottom_x[r] /\ i <= top_x[r] /\ j >= bottom_y[r] /\ j <= top_y[r]);
 
 output [
   if exists(r in RECTANGLES)(in_rectangle(r, i, j)) then
@@ -41,6 +39,5 @@ output [
   else
     " "
   endif ++ (if j = fix(height) then "\n" else "" endif)
-
   | i in 0..fix(width), j in 0..fix(height)
 ];
