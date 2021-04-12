@@ -1,0 +1,11 @@
+{
+  "filewatcher.shell": "/usr/local/bin/elvish",
+  "filewatcher.commands": [
+    {
+      "match": "\\.mzn$",
+      "isAsync": true,
+      "cmd": "set paths = [/Applications/MiniZincIDE.app/Contents/Resources $@paths]; minizinc '${file}'",
+      "event": "onFileChange"
+    }
+  ]
+}
