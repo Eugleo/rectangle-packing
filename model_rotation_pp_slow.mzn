@@ -17,19 +17,29 @@ array [RECTANGLES] of var 1..(sum(ws) - min(ws) + 1): xs;
 % we only use ys during pretty-printing
 array [RECTANGLES] of var 1..(sum(hs) - min(hs) + 1): ys;
 
-var int: width = max([xs[i] + ws[i] | i in RECTANGLES]) - 1;
-var max(hs)..sum(hs): height;
+
+list of 0..max([max(hs), max(ws)]): dimensions = ws ++ hs;
+
+array [RECTANGLES] of var 0..max([max(hs), max(ws)]): widths;
+array [RECTANGLES] of var 0..max([max(hs), max(ws)]): heights;
+constraint forall(r in RECTANGLES)(
+  (widths[r] = hs[r] /\ heights[r] = ws[r])
+    \/ (widths[r] = ws[r] /\ heights[r] = hs[r])
+);
+
+var int: width = max([xs[i] + widths[i] | i in RECTANGLES]) - 1;
+var max(dimensions)..sum(dimensions): height;
 var int: area = width * height;
 
 % this is basically the whole program
-constraint cumulative(xs, fix(ws), fix(hs), height);
+constraint cumulative(xs, widths, heights, height);
 
 solve minimize area;
 
 %% The rest of the file is here only to pretty-print the solution
 
 constraint forall(i in RECTANGLES)(
-  ys[i] <= (height - min(hs))
+  ys[i] <= (height - min(heights))
 );
 
 predicate between(var int: x, var int: beg, var int: end) =
@@ -41,11 +51,11 @@ predicate intersecting_along(var int: r1, var int: r2, list of var int: as, list
   between(as[r2], as[r1], as[r1] + mods[r1]) \/ between(as[r1], as[r2], as[r2] + mods[r2]);
 
 constraint forall(r1, r2 in RECTANGLES where r1 < r2)(
-  intersecting_along(r1, r2, xs, ws) -> not intersecting_along(r1, r2, ys, hs)
+  intersecting_along(r1, r2, xs, widths) -> not intersecting_along(r1, r2, ys, heights)
 );
 
 predicate in_rectangle(par int: r, par int: x, par int: y) =
-  fix(between(x, xs[r], xs[r] + ws[r]) /\ between(y, ys[r], ys[r] + hs[r]));
+  fix(between(x, xs[r], xs[r] + widths[r]) /\ between(y, ys[r], ys[r] + heights[r]));
 
 % I'd love to have a function first
 %   - first: return the index of the first element that matches the predicate, or a default value
