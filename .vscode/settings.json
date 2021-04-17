@@ -4,7 +4,7 @@
     {
       "match": "\\.mzn$",
       "isAsync": true,
-      "cmd": "set paths = [/Applications/MiniZincIDE.app/Contents/Resources $@paths]; minizinc --output-time -d '${fileDirname}/data.dzn' '${file}'",
+      "cmd": "set paths = [/Applications/MiniZincIDE.app/Contents/Resources $@paths]; minizinc --solver org.chuffed.chuffed -f --output-time -d '${fileDirname}/data.dzn' '${file}'",
       "event": "onFileChange"
     }
   ]
