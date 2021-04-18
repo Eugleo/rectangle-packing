@@ -8,27 +8,27 @@ array [int, 1..2] of int: rectangles;
 set of int: RECTANGLES = index_set_1of2(rectangles);
 
 % widths and heights; we can't use `col` because the index sets don't match up
-array [RECTANGLES] of int: ws = [rectangles[r, 1] | r in RECTANGLES ];
-array [RECTANGLES] of int: hs = [rectangles[r, 2] | r in RECTANGLES ];
+array [RECTANGLES] of int: as = [rectangles[r, 1] | r in RECTANGLES ];
+array [RECTANGLES] of int: bs = [rectangles[r, 2] | r in RECTANGLES ];
+
+int: max_side = max(as ++ bs);
+int: min_side = min(as ++ bs);
 
 % x is the position of the bottom-left corner block of a rectangle on the x-axis
-array [RECTANGLES] of var 1..(sum(ws) - min(ws) + 1): xs;
+array [RECTANGLES] of var 1..(max_side - min_side + 1): xs;
 % similarly, y is the position of the bottom-left corner block of a rectangle on the y-axis
 % we only use ys during pretty-printing
-array [RECTANGLES] of var 1..(sum(hs) - min(hs) + 1): ys;
+array [RECTANGLES] of var 1..(max_side - min_side + 1): ys;
 
-
-list of 0..max([max(hs), max(ws)]): dimensions = ws ++ hs;
-
-array [RECTANGLES] of var 0..max([max(hs), max(ws)]): widths;
-array [RECTANGLES] of var 0..max([max(hs), max(ws)]): heights;
+array [RECTANGLES] of var 0..max([max(bs), max(as)]): widths;
+array [RECTANGLES] of var 0..max([max(bs), max(as)]): heights;
 constraint forall(r in RECTANGLES)(
-  (widths[r] = hs[r] /\ heights[r] = ws[r])
-    \/ (widths[r] = ws[r] /\ heights[r] = hs[r])
+  (widths[r] = bs[r] /\ heights[r] = as[r])
+    \/ (widths[r] = as[r] /\ heights[r] = bs[r])
 );
 
-var int: width = max([xs[i] + widths[i] | i in RECTANGLES]) - 1;
-var max(dimensions)..sum(dimensions): height;
+var int: width = max([xs[r] + widths[r] | r in RECTANGLES]) - 1;
+var max_side..sum([max(as[r], bs[r]) | r in RECTANGLES]): height;
 var int: area = width * height;
 
 % this is basically the whole program

@@ -1,61 +1,48 @@
 include "cumulative.mzn";
 
-list of string: labels =
-  [ "A","B","C","D","E","F","G","H","I","J","K","L","M",
-    "N","O","P","Q","R","S","T","V","U","W","X","Y", "Z" ];
-
 array [int, 1..2] of int: rectangles;
 set of int: RECTANGLES = index_set_1of2(rectangles);
 
 % widths and heights; we can't use `col` because the index sets don't match up
-array [RECTANGLES] of int: ws = [rectangles[r, 1] | r in RECTANGLES ];
-array [RECTANGLES] of int: hs = [rectangles[r, 2] | r in RECTANGLES ];
+array [RECTANGLES] of int: as = [rectangles[r, 1] | r in RECTANGLES ];
+array [RECTANGLES] of int: bs = [rectangles[r, 2] | r in RECTANGLES ];
+
+list of int: stacked_up = [max(as[r], bs[r]) | r in RECTANGLES];
+
+int: largest_rectangle = [r | r in RECTANGLES where max(as[r], bs[r]) = max(as ++ bs)][1];
 
 % x is the position of the bottom-left corner block of a rectangle on the x-axis
-array [RECTANGLES] of var 1..(sum(ws) - min(ws) + 1): xs;
-% similarly, y is the position of the bottom-left corner block of a rectangle on the y-axis
-% we only use ys during pretty-printing
-array [RECTANGLES] of var 1..(sum(hs) - min(hs) + 1): ys;
+array [RECTANGLES] of var 1..(sum(stacked_up) - min(stacked_up) + 1): xs;
 
-var int: width = max([xs[i] + ws[i] | i in RECTANGLES]) - 1;
-var max(hs)..sum(hs): height;
+array [RECTANGLES] of var 0..max(stacked_up): widths;
+array [RECTANGLES] of var 0..max(stacked_up): heights;
+
+% 90 degree rotation
+constraint forall(r in RECTANGLES)(
+  if as[r] = bs[r] then
+    widths[r] = as[r] /\ heights[r] = bs[r]
+  else
+    widths[r] in {as[r], bs[r]} /\ heights[r] in {as[r], bs[r]} /\ widths[r] != heights[r]
+  endif
+);
+
+% Symmetry breaking, based on rectangle dimensions, ignoring rotation
+constraint forall([
+  xs[r1] <= xs[r2] | r1, r2 in RECTANGLES where
+    r1 < r2 /\ {as[r1], bs[r1]} = {as[r2], bs[r2]}
+]);
+
+% Symmetry breaking for symmetry along the vertical axis
+constraint xs[1] * 2 <= width;
+
+int: mindim = max([min(as[r], bs[r]) | r in RECTANGLES]);
+
+var mindim..sum(stacked_up): width = max([xs[r] + widths[r] | r in RECTANGLES]) - 1;
+var mindim..sum(stacked_up): height;
 var int: area = width * height;
 
-% this is basically the whole program
-constraint cumulative(xs, fix(ws), fix(hs), height);
+constraint cumulative(xs, widths, heights, height);
 
 solve minimize area;
 
-%% The rest of the file is here only to pretty-print the solution
-
-constraint forall(i in RECTANGLES)(
-  ys[i] <= (height - min(hs))
-);
-
-predicate between(var int: x, var int: beg, var int: end) =
-  x in beg..(end - 1);
-predicate between(par int: x, par int: beg, par int: end) =
-  fix(x in beg..(end - 1));
-
-predicate intersecting_along(var int: r1, var int: r2, list of var int: as, list of var int: mods) =
-  between(as[r2], as[r1], as[r1] + mods[r1]) \/ between(as[r1], as[r2], as[r2] + mods[r2]);
-
-constraint forall(r1, r2 in RECTANGLES where r1 < r2)(
-  intersecting_along(r1, r2, xs, ws) -> not intersecting_along(r1, r2, ys, hs)
-);
-
-predicate in_rectangle(par int: r, par int: x, par int: y) =
-  fix(between(x, xs[r], xs[r] + ws[r]) /\ between(y, ys[r], ys[r] + hs[r]));
-
-% I'd love to have a function first
-%   - first: return the index of the first element that matches the predicate, or a default value
-%   - better than if exists(<PRED>) then find the index by sum(<PRED>) and then use it else ...
-% Probably impossible due to MZ not having higher-order functions?
-output [
-  if exists(r in RECTANGLES)(in_rectangle(r, x, y)) then
-    "(" ++ labels[sum([r | r in RECTANGLES where in_rectangle(r, x, y)])] ++ ")"
-  else
-    " . "
-  endif ++ (if x = (fix(width)) then "\n" else "" endif)
-  | y in reverse(1..(fix(height))), x in 1..(fix(width))
-] ++ ["\n\nTotal area: \(area) (\(height) x \(width))"]
+output ["\(area) (\(width) x \(height))"]
