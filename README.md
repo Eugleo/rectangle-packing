@@ -9,7 +9,7 @@ Zadání je navíc rozšířeno tak, že máme dovoleno obdélníky rotovat o 90
 Obecně:
 - `rectangles` je dvourozměrné pole tvaru `RECTANGLES x 2`, kde `RECTANGLES` označuje celkový počet obdélníků
   - vstup jde vygenerovat skriptem v `generate_input.py`
-  - finální implementace si poradí se 13 obdélníky o stranách délky 2 až 20 během dvou minut
+  - finální implementace si poradí se 13 obdélníky o stranách délky 2 až 20 během 220s
 - v prvním sloupci je délka strany `a` a v druhém délka strany `b`
 - strana `a` (potažmo strana `b`) může označovat jak délku, tak šířku daného obdélníku — tímto je v programu ošetřena dříve zmíněná rotace o 90 stupňů
 
