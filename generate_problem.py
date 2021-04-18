@@ -12,4 +12,4 @@ def generate(n, min=2, max=20, path="data.dzn"):
 
 
 if __name__ == "__main__":
-    generate(15, min=2, max=20)
+    generate(11, min=2, max=20)
