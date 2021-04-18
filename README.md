@@ -1,49 +1,65 @@
+# Rectangle packing
 
-## Optimalizace
+V `data.dzn` v proměnné `rectangles` máme zadány rozměry obdélníků, které máme umístit na podkladovou obdélníkovou plochu tak, aby se nepřekrývaly, a zároveň aby ona podkladová ploha byla co nejmenší — rozměry této plochy jsou také výstupem našeho programu.
 
-Zásadní byl přechod z Gecode solveru na Chuffed, a následující optimalizace.
+Zadání je navíc rozšířeno tak, že máme dovoleno obdélníky rotovat o 90 stupňů.
 
-### Rotace
+## Pár slov k první implementaci
 
-Řekněme, že chceme proměnnou `width[r]` nastavit na jedno z čísel `as[r]`, `bs[r]`, a `height[r]` nastavit na to druhé z nich. Naivně tuto podmínku můžeme specifikovat jako
+Obecně:
+- `rectangles` je dvourozměrné pole tvaru `RECTANGLES x 2`, kde `RECTANGLES` označuje celkový počet obdélníků
+  - vstup jde vygenerovat skriptem v `generate_input.py`
+  - finální implementace si poradí se 13 obdélníky o stranách délky 2 až 20 během dvou minut
+- v prvním sloupci je délka strany `a` a v druhém délka strany `b`
+- strana `a` (potažmo strana `b`) může označovat jak délku, tak šířku daného obdélníku — tímto je v programu ošetřena dříve zmíněná rotace o 90 stupňů
 
-```
-(widths[r] = bs[r] /\ heights[r] = as[r])
-  \/ (widths[r] = as[r] /\ heights[r] = bs[r])
-```
 
-Pokud jsme ale schopni zaručit, že `as[r] != bs[r]`, můžeme to napsat následovně
+Základní, naivní implementace reprezentovala každý obdélník čtyřmi čísly:
+- zadané `w` a `h` označující rozměry obdélníku
+- `x`, `y` označující levý dolní roh obélníku — ty chceme během výpočtu určit
 
-```
-widths[r] in {as[r], bs[r]}
-  /\ heights[r] in {as[r], bs[r]}
-  /\ widths[r] != heights[r]
-```
+Pomocí skupiny několika nerovností jsme popsali podmínku "obdélníky se nepřekrývají", jednoduchou rovností zase šířku a výšku podkladové plochy.
 
-Tato druhá verze je řádově rychlejší (výpočet na 40 obdélnících se zrychlil ze 7s na 0.15s).
 
-### Symmetry breaking u obdobných obdélníků
+## Pár slov k optimalizaci
 
-V případě, že je obdélník `r1` shodný (modulo rotace) s obdélníkem `r2`, můžeme provést jednoduchý symmetry breaking: je-li `r1 < r2`, poté `r1` nebude napravo od `r2`.
+Optimalzovaná verze je implementována v `model.mzn`.
 
-```
-constraint forall([
-  xs[r1] <= xs[r2] | r1, r2 in RECTANGLES where
-    r1 < r2 /\ {as[r1], bs[r1]} = {as[r2], bs[r2]}
-]);
-```
+- zásadní se ukázala myšlenka, že tento druh problému lze vyjádřit pomocí globální podmínky `cummulative`
+  - resource je výška podkladové plochy, starty jednotlivých úloh jsou `x`-ové souřadnice obdélníků, doby trvání jsou jejich šířky, resource-requirements jejich výšky
+- přechod z Gecode solveru na Chuffed zrychlil řešení přibližně o dva řády
+- děláme symmetry breaking pro obdélníky stejných rozměrů
+  - pokud mají dva obdélníky stejné rozměry, nesmí ten s nižším indexem v `rectangles` být napravo od toho druhého
+  ```
+  constraint forall([
+    xs[r1] <= xs[r2] | r1, r2 in RECTANGLES where
+      r1 < r2 /\ {as[r1], bs[r1]} = {as[r2], bs[r2]}
+  ]);
+  ```
 
-U problému s 200 podobnými obdélníky (`generate(200, min=5, max=7)`) se tato podmínka zaslouží o zhruba dvojnásobné zrychlení.
+- děláme symmetry breaking podél vertikální osy
+  - první obdélník má origin v levé polovině podkladové plochy
+  ```
+  constraint xs[1] * 2 <= width;
+  ```
 
-### Symmetry breaking u rotace
+- u rotace obdélníků pomohlo vyměnit původní implementaci
 
-Velkou část prohledávacího prostoru můžeme omezit tím, že u prvního obdélníku zafixujeme rotaci
+    ```
+    (widths[r] = bs[r] /\ heights[r] = as[r])
+      \/ (widths[r] = as[r] /\ heights[r] = bs[r])
+    ```
 
-```
-constraint forall([
-  xs[r1] <= xs[r2] | r1, r2 in RECTANGLES where
-    r1 < r2 /\ {as[r1], bs[r1]} = {as[r2], bs[r2]}
-]);
-```
+    za implementaci následující (která počítá s `as[r] != bs[r]`)
 
-U problému s 200 podobnými obdélníky (`generate(200, min=5, max=7)`) se tato podmínka zaslouží o zhruba dvojnásobné zrychlení.
+    ```
+    widths[r] in {as[r], bs[r]}
+      /\ heights[r] in {as[r], bs[r]}
+      /\ widths[r] != heights[r]
+    ```
+
+    která je několikrát rychlejší, nejspíše kvůli absenci disjunkcí
+
+- solver obecně najdou řešení celkem rychle, dlouho jim však poté trvá dokázat, že je to opravdu to nejlepší
+  - zpravidla to bývá tak 25% času hledání, 75% dokazování, že nic lepšího už není
+  - měl jsem za to, že by v tomto mělo pomoci specifikovat solveru v jakém pořadí má u jednotlivých proměnných prohledávat hodnoty (např. `area` a `height` od nejmenší), ale nepomohlo
